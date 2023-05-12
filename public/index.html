@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JohnyChat</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta2/css/all.min.css">
+  <style>
+    body {
+      font-family: "Courier New", monospace;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    h1 {
+      text-align: center;
+      display: none;
+    }
+    #username-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1;
+    }
+    #username-form {
+      background-color: #fff;
+      padding: 2rem;
+      border-radius: 5px;
+    }
+    #username-input {
+      width: 100%;
+      padding: 0.5rem;
+      font-family: "Courier New", monospace;
+      border: 1px solid #ccc;
+      margin-bottom: 1rem;
+    }
+    #messages {
+      list-style-type: none;
+      margin: 0;
+      padding: 0;
+      flex: 1;
+      overflow-y: scroll;
+      padding: 1rem;
+      box-sizing: border-box;
+      display: none;
+    }
+    #messages li {
+      padding: 5px 10px;
+      text-align: left;
+    }
+    #messages li:nth-child(odd) {
+      background: #eee;
+    }
+    .username {
+      font-weight: bold;
+    }
+    .connected {
+      color: green;
+      font-weight: bold;
+    }
+    .disconnected {
+      color: red;
+      font-weight: bold;
+    }
+    #form {
+      display: flex;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    #input {
+      flex: 1;
+      padding: 0.5rem;
+      font-family: "Courier New", monospace;
+      border: 1px solid #ccc;
+    }
+    #form button,
+    #clear-chat {
+      padding: 0.5rem 1rem;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      font-family: "Courier New", monospace;
+      cursor: pointer;
+      display: none;
+    }
+    #form button:hover,
+    #clear-chat:hover {
+      background-color: #0069d9;
+    }
+    #user-count {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      display: flex;
+      align-items: center;
+    }
+    #user-count i {
+      font-size: 24px;
+      margin-right: 5px;
+    }
+    #user-list {
+      display: none;
+      position: absolute;
+      top: 40px;
+      left: 10px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: nowrap;
+    }
+    #user-count:hover #user-list {
+      display: block;
+    }
+    .connected {
+      color: rgb(0, 87, 0);
+      font-weight: bold;
+    }
+    .disconnected {
+      color: red;
+      font-weight: bold;
+    }
+    .messageWrapper {
+        margin-bottom: 10px;
+    }
+    
+  </style>
+</head>
+<body>
+  <div id="username-overlay">
+    <form id="username-form" action="">
+      <label for="username-input">Enter your username:</label>
+      <input id="username-input" autocomplete="off" autofocus />
+      <button type="submit">Join</button>
+    </form>
+  </div>
+  <h1>JohnyChat</h1>
+  <ul id="messages"></ul>
+  <form id="form" action="">
+    <input id="input" autocomplete="off" autofocus /><button type="submit">Send</button>
+  </form>
+  <button id="clear-chat">Clear Chat</button>
+  <div id="user-count">
+    <i class="fas fa-user"></i>
+    <span id="connected-users">0</span>
+    <div id="user-list"></div>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const form = document.getElementById('form');
+    const input = document.getElementById('input');
+    const messages = document.getElementById('messages');
+    const clearChatButton = document.getElementById('clear-chat');
+    const usernameOverlay = document.getElementById('username-overlay');
+    const usernameForm = document.getElementById('username-form');
+    const usernameInput = document.getElementById('username-input');
+    const chatTitle = document.querySelector('h1');
+    const userCount = document.getElementById('connected-users');
+    const userList = document.getElementById('user-list');
+
+    const usernameColors = {};
+
+    function getRandomColor() {
+        const letters = '0123456789ABCDEF';
+        let color = '#';
+        for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+    }
+
+    socket.on('chat message', ({ username, message }) => {
+      const li = document.createElement('li');
+      const usernameSpan = document.createElement('span');
+      usernameSpan.classList.add('username');
+
+      // Check if the username has an assigned color, if not, assign one
+      if (!usernameColors[username]) {
+        usernameColors[username] = getRandomColor();
+      }
+      
+      usernameSpan.style.color = usernameColors[username];
+      usernameSpan.textContent = username + ': ';
+      li.appendChild(usernameSpan);
+
+      if (message === 'conectou-se') {
+        usernameSpan.classList.add('connected');
+        usernameSpan.textContent = username + ' ' + message + ' ✅';
+      } else if (message === 'desconectou-se') {
+        usernameSpan.classList.add('disconnected');
+        usernameSpan.textContent = username + ' ' + message + ' ⛔️';
+      } else {
+        const msgSpan = document.createElement('span');
+        msgSpan.classList.add('messageText');
+        msgSpan.textContent = message;
+        li.appendChild(msgSpan);
+      }
+
+      messages.appendChild(li);
+      messages.scrollTop = messages.scrollHeight;
+    });
+
+
+    usernameForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const username = usernameInput.value.trim();
+      if (username) {
+        socket.emit('user ready', username);
+        usernameOverlay.style.display = 'none';
+        chatTitle.style.display = 'block';
+        messages.style.display = 'block';
+        form.style.display = 'flex';
+        clearChatButton.style.display = 'block';
+      }
+    });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (input.value) {
+        socket.emit('chat message', { username: usernameInput.value, message: input.value });
+        input.value = '';
+      }
+    });
+
+    socket.on('clear chat', () => {
+      messages.innerHTML = '';
+    });
+
+    clearChatButton.addEventListener('click', () => {
+      socket.emit('clear chat');
+    });
+
+    socket.on('update user list', (connectedUsers) => {
+      userCount.textContent = connectedUsers.length;
+      userList.innerHTML = '';
+      connectedUsers.forEach((user) => {
+        const li = document.createElement('li');
+        li.textContent = user;
+        userList.appendChild(li);
+      });
+    });
+
+    socket.on('user disconnected', (username) => {
+      const li = document.createElement('li');
+      const usernameSpan = document.createElement('span');
+      usernameSpan.classList.add('username', 'disconnected');
+      usernameSpan.style.color = usernameColors[username];
+      usernameSpan.textContent = username + ' desconectou-se';
+      li.appendChild(usernameSpan);
+      messages.appendChild(li);
+      messages.scrollTop = messages.scrollHeight;
+    });
+
+    window.addEventListener('beforeunload', (e) => {
+      socket.emit('username disconnecting', usernameInput.value);
+    });
+
+  </script>
+</body>
+</html>
